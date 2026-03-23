@@ -18,10 +18,10 @@ description = "Web PKI X.509 Certificate Verification."
 edition = "2021"
 rust-version = "1.61"
 license = "ISC"
-name = "rustls-webpki"
+name = "anza-rustls-webpki"
 readme = "README.md"
 repository = "https://github.com/rustls/webpki"
-version = "0.101.7"
+version = "0.101.7-rustsec20260049"
 
 include = [
     "Cargo.toml",
