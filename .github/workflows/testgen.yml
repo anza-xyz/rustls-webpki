@@ -39,7 +39,7 @@ jobs:
         run: mypy ./tests
 
       - name: Black Format
-        uses: psf/black@stable
+        uses: psf/black@25.1.0
         with:
           src: "./tests"
 
@@ -55,6 +55,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           components: rustfmt
 
       - name: Set up Python environment

@@ -25,6 +25,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           components: rustfmt
 
       - name: Check formatting
@@ -42,6 +43,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           components: clippy
 
       - run: cargo clippy --locked --all-features --all-targets -- --deny warnings
@@ -57,6 +59,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.89.0"
 
       - name: Install cargo deny
         uses: taiki-e/install-action@cargo-deny
@@ -70,9 +74,9 @@ jobs:
     strategy:
       matrix:
         rust_channel:
-          - stable
-          - beta
-          - nightly
+          - 1.89.0 # stable at time of tag
+          - 1.90.0 # beta at time of tag
+          - nightly-2025-08-06 # nightly at time of tag
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
@@ -87,7 +91,7 @@ jobs:
       - name: cargo doc (all features)
         run: cargo doc --locked --all-features --document-private-items
         env:
-          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
+          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly-2025-08-06' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
 
   package:
     name: Cargo Package
@@ -100,6 +104,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.89.0"
 
       - run: cargo package --locked --all-features
 
@@ -127,39 +133,39 @@ jobs:
           - ubuntu-latest
 
         rust_channel:
-          - stable
+          - 1.89.0
 
         include:
           # Test aws-lc-rs across Rust channels
           - features: --features aws-lc-rs
-            rust_channel: beta
+            rust_channel: 1.90.0
             host_os: ubuntu-latest
 
           - features: --features aws-lc-rs
-            rust_channel: nightly
+            rust_channel: 1.91.0
             host_os: ubuntu-latest
 
           # Test aws-lc-rs across OSes
           - features: --features aws-lc-rs
-            rust_channel: stable
+            rust_channel: 1.89.0
             host_os: macos-latest
 
           - features: --features aws-lc-rs
-            rust_channel: stable
+            rust_channel: 1.89.0
             host_os: windows-latest
 
           # Test ring across OSes
           - features: --features ring
-            rust_channel: stable
+            rust_channel: 1.89.0
             host_os: macos-latest
 
           - features: --features ring
-            rust_channel: stable
+            rust_channel: 1.89.0
             host_os: windows-latest
 
           # Test aws-lc-rs-fips on Linux only (stable only)
           - features: --features aws-lc-rs-fips
-            rust_channel: stable
+            rust_channel: 1.89.0
             host_os: ubuntu-latest
 
     steps:
@@ -209,6 +215,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.89.0"
 
       - name: Install cross
         uses: taiki-e/install-action@cross
@@ -243,7 +251,7 @@ jobs:
       - name: Install cargo-check-external-types
         uses: taiki-e/cache-cargo-install-action@v2
         with:
-          tool: cargo-check-external-types
+          tool: cargo-check-external-types@0.3.0 # latest at time of tag
       - name: run cargo-check-external-types
         run: cargo check-external-types
 
@@ -262,6 +270,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           components: llvm-tools
 
       - name: Measure coverage
@@ -295,6 +304,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           targets: "$NOSTD_TARGET"
 
       - name: check no-std mode
