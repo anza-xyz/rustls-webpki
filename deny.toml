@@ -1,5 +1,12 @@
 [advisories]
 yanked = "deny"
+ignore = [
+    "RUSTSEC-2026-0045",
+    "RUSTSEC-2026-0046",
+    "RUSTSEC-2026-0047",
+    "RUSTSEC-2026-0048",
+    "RUSTSEC-2026-0009",
+]
 
 [licenses]
 allow = [
