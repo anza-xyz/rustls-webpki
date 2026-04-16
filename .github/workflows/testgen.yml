@@ -55,6 +55,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: "1.89.0"
           components: rustfmt
 
       - name: Set up Python environment
