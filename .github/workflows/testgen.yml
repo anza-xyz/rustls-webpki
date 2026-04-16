@@ -39,7 +39,7 @@ jobs:
         run: mypy ./tests
 
       - name: Black Format
-        uses: psf/black@stable
+        uses: psf/black@25.1.0
         with:
           src: "./tests"
 
