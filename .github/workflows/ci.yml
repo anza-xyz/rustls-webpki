@@ -71,7 +71,7 @@ jobs:
       matrix:
         rust_channel:
           - stable
-          - beta
+          - 1.90.0 # beta at time of tag
           - nightly
     steps:
       - name: Checkout sources
@@ -132,7 +132,7 @@ jobs:
         include:
           # Test aws-lc-rs across Rust channels
           - features: --features aws-lc-rs
-            rust_channel: beta
+            rust_channel: 1.90.0
             host_os: ubuntu-latest
 
           - features: --features aws-lc-rs
