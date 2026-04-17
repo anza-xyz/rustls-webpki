@@ -74,7 +74,7 @@ jobs:
         rust_channel:
           - 1.73.0
           - 1.74.0
-          - nightly
+          - nightly-2023-10-05
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -89,7 +89,7 @@ jobs:
       - name: cargo doc (all features)
         run: cargo doc --all-features
         env:
-          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
+          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly-2023-10-05' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
 
   package:
     name: Cargo Package
@@ -124,7 +124,7 @@ jobs:
 
         rust_channel:
           - 1.73.0
-          - nightly
+          - nightly-2023-10-05
           - 1.74.0
 
         exclude:
@@ -135,7 +135,7 @@ jobs:
             mode: --release
           - features: --all-features
             mode: # debug
-            rust_channel: nightly
+            rust_channel: nightly-2023-10-05
           - features: --all-features
             mode: # debug
             rust_channel: 1.74.0
@@ -163,7 +163,7 @@ jobs:
 
           - features: --all-features
             mode: # debug
-            rust_channel: nightly
+            rust_channel: nightly-2023-10-05
             host_os: ubuntu-22.04
 
           - features: --all-features
@@ -262,6 +262,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2023-10-05
           components: llvm-tools
 
       - name: Measure coverage
