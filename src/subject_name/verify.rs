@@ -163,8 +163,8 @@ fn check_presented_id_conforms_to_constraints(
     )
 }
 
-#[derive(Clone, Copy)]
-enum Subtrees {
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Subtrees {
     PermittedSubtrees,
     ExcludedSubtrees,
 }
