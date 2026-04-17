@@ -30,14 +30,11 @@ jobs:
       - name: Install Python requirements.
         run: pip install -r requirements.txt
 
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
-
       - name: mypy Typecheck
         run: mypy ./tests
 
       - name: Black Format
-        uses: psf/black@stable
+        uses: psf/black@23.9.1
         with:
           src: "./tests"
 

@@ -13,7 +13,7 @@ on:
 jobs:
   rustfmt:
     name: Format
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -23,6 +23,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.73.0
           components: rustfmt
 
       - name: Check formatting
@@ -30,7 +31,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -40,13 +41,14 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.73.0
           components: clippy
 
       - run: cargo clippy --all-features --all-targets
 
   deny:
     name: Cargo Deny
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -55,22 +57,25 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - name: Install cargo deny
-        uses: taiki-e/install-action@cargo-deny
+        uses: taiki-e/install-action@2.20.16
+          tool: cargo-deny
 
       - run: cargo deny check
 
   # Verify that documentation builds.
   rustdoc:
     name: Check for documentation errors
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         rust_channel:
-          - stable
-          - beta
-          - nightly
+          - 1.73.0
+          - 1.74.0
+          - nightly-2023-10-05
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -85,11 +90,11 @@ jobs:
       - name: cargo doc (all features)
         run: cargo doc --all-features
         env:
-          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
+          RUSTDOCFLAGS: ${{ matrix.rust_channel == 'nightly-2023-10-05' && '-Dwarnings --cfg=docsrs' || '-Dwarnings' }}
 
   package:
     name: Cargo Package
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -98,6 +103,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - run: cargo package
 
@@ -117,9 +124,9 @@ jobs:
           - --release
 
         rust_channel:
-          - stable
-          - nightly
-          - beta
+          - 1.73.0
+          - nightly-2023-10-05
+          - 1.74.0
 
         exclude:
           - features: # Default
@@ -129,55 +136,55 @@ jobs:
             mode: --release
           - features: --all-features
             mode: # debug
-            rust_channel: nightly
+            rust_channel: nightly-2023-10-05
           - features: --all-features
             mode: # debug
-            rust_channel: beta
+            rust_channel: 1.74.0
 
         include:
           - features: # Default
             mode: # debug
-            rust_channel: stable
-            host_os: ubuntu-20.04
+            rust_channel: 1.73.0
+            host_os: ubuntu-22.04
 
           - features: --features=alloc
             mode: # debug
-            rust_channel: stable
-            host_os: ubuntu-20.04
+            rust_channel: 1.73.0
+            host_os: ubuntu-22.04
 
           - features: --no-default-features
             mode: # debug
-            rust_channel: stable
-            host_os: ubuntu-20.04
+            rust_channel: 1.73.0
+            host_os: ubuntu-22.04
 
           - features: --all-features
             mode: --release
-            rust_channel: stable
-            host_os: ubuntu-20.04
+            rust_channel: 1.73.0
+            host_os: ubuntu-22.04
 
           - features: --all-features
             mode: # debug
-            rust_channel: nightly
-            host_os: ubuntu-20.04
+            rust_channel: nightly-2023-10-05
+            host_os: ubuntu-22.04
 
           - features: --all-features
             mode: # debug
-            rust_channel: beta
-            host_os: ubuntu-20.04
+            rust_channel: 1.74.0
+            host_os: ubuntu-22.04
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: macos-latest
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: windows-latest
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -197,7 +204,7 @@ jobs:
 
   msrv:
     name: MSRV
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -212,7 +219,7 @@ jobs:
 
   cross:
     name: Check cross compilation targets
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -221,6 +228,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - name: Install cross
         uses: taiki-e/install-action@cross
@@ -241,7 +250,7 @@ jobs:
 
   coverage:
     name: Measure coverage
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -254,6 +263,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
+          toolchain: nightly-2023-10-05
           components: llvm-tools
 
       - name: Measure coverage
