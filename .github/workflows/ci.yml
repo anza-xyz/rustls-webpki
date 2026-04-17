@@ -23,6 +23,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.73.0
           components: rustfmt
 
       - name: Check formatting
@@ -40,6 +41,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.73.0
           components: clippy
 
       - run: cargo clippy --all-features --all-targets
@@ -55,6 +57,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - name: Install cargo deny
         uses: taiki-e/install-action@cargo-deny
@@ -68,7 +72,7 @@ jobs:
     strategy:
       matrix:
         rust_channel:
-          - stable
+          - 1.73.0
           - beta
           - nightly
     steps:
@@ -98,6 +102,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - run: cargo package
 
@@ -117,7 +123,7 @@ jobs:
           - --release
 
         rust_channel:
-          - stable
+          - 1.73.0
           - nightly
           - beta
 
@@ -137,22 +143,22 @@ jobs:
         include:
           - features: # Default
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-22.04
 
           - features: --features=alloc
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-22.04
 
           - features: --no-default-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-22.04
 
           - features: --all-features
             mode: --release
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-22.04
 
           - features: --all-features
@@ -167,17 +173,17 @@ jobs:
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: macos-latest
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: windows-latest
 
           - features: --all-features
             mode: # debug
-            rust_channel: stable
+            rust_channel: 1.73.0
             host_os: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -221,6 +227,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.73.0
 
       - name: Install cross
         uses: taiki-e/install-action@cross
