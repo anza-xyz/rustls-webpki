@@ -61,7 +61,8 @@ jobs:
           toolchain: 1.73.0
 
       - name: Install cargo deny
-        uses: taiki-e/install-action@cargo-deny
+        uses: taiki-e/install-action@2.20.16
+          tool: cargo-deny
 
       - run: cargo deny check
 
