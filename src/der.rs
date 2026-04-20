@@ -665,7 +665,21 @@ mod tests {
         assert!(matches!(
             bit_string_flags(&mut trailing_zeroes),
             Err(Error::BadDer)
-        ))
+        ));
+
+        // invalid padding for empty set
+        for pad in 1..=255 {
+            assert_eq!(
+                bit_string_flags(&mut untrusted::Reader::new(untrusted::Input::from(&[
+                    BITSTRING_TAG, // BitString
+                    0x01,          // 1 byte of content
+                    pad,           // `pad` bits of padding
+                                   // no data (illegal with padding!)
+                ])))
+                .err(),
+                Some(Error::BadDer)
+            );
+        }
     }
 
     #[test]
@@ -708,5 +722,19 @@ mod tests {
         for b in 0..256 {
             assert!(!bs.bit_set(b));
         }
+    }
+
+    #[test]
+    fn mispadded_bit_string_flags() {
+        assert_eq!(
+            super::bit_string_flags(&mut untrusted::Reader::new(untrusted::Input::from(&[
+                BITSTRING_TAG, // BitString
+                0x02,          // 2 bytes of content
+                0x04,          // 4 bits of padding
+                0xff           // Flag data
+            ])))
+            .err(),
+            Some(super::Error::BadDer)
+        );
     }
 }
