@@ -234,28 +234,6 @@ impl AsRef<str> for WildcardDnsNameRef<'_> {
     }
 }
 
-pub(super) fn presented_id_matches_reference_id(
-    presented_dns_id: untrusted::Input,
-    reference_dns_id: untrusted::Input,
-) -> Result<bool, Error> {
-    presented_id_matches_reference_id_internal(
-        presented_dns_id,
-        IdRole::Reference,
-        reference_dns_id,
-    )
-}
-
-pub(super) fn presented_id_matches_constraint(
-    presented_dns_id: untrusted::Input,
-    reference_dns_id: untrusted::Input,
-) -> Result<bool, Error> {
-    presented_id_matches_reference_id_internal(
-        presented_dns_id,
-        IdRole::NameConstraint(Subtrees::PermittedSubtrees),
-        reference_dns_id,
-    )
-}
-
 // We assume that both presented_dns_id and reference_dns_id are encoded in
 // such a way that US-ASCII (7-bit) characters are encoded in one byte and no
 // encoding of a non-US-ASCII character contains a code point in the range
@@ -372,7 +350,7 @@ pub(super) fn presented_id_matches_constraint(
 // [4] Feedback on the lack of clarify in the definition that never got
 //     incorporated into the spec:
 //     https://www.ietf.org/mail-archive/web/pkix/current/msg21192.html
-fn presented_id_matches_reference_id_internal(
+pub(super) fn presented_id_matches_reference_id(
     presented_dns_id: untrusted::Input,
     reference_dns_id_role: IdRole,
     reference_dns_id: untrusted::Input,
@@ -520,7 +498,7 @@ enum AllowWildcards {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum IdRole {
+pub(super) enum IdRole {
     Reference,
     Presented,
     NameConstraint(Subtrees),
@@ -1033,6 +1011,7 @@ mod tests {
         for &(presented, reference, expected_result) in PRESENTED_MATCHES_REFERENCE {
             let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
+                IdRole::Reference,
                 untrusted::Input::from(reference),
             );
             assert_eq!(
@@ -1109,8 +1088,9 @@ mod tests {
     #[test]
     fn presented_matches_constraint_test() {
         for &(presented, constraint, expected_result) in PRESENTED_MATCHES_CONSTRAINT {
-            let actual_result = presented_id_matches_constraint(
+            let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
+                IdRole::NameConstraint(Subtrees::PermittedSubtrees),
                 untrusted::Input::from(constraint),
             );
             assert_eq!(
@@ -1124,8 +1104,9 @@ mod tests {
     #[test]
     fn wildcard_san_not_contained_in_constraint() {
         for (presented, constraint, expected_result) in WILDCARD_CONSTRAINT_CONTAINMENT {
-            let actual_result = presented_id_matches_constraint(
+            let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
+                IdRole::NameConstraint(Subtrees::PermittedSubtrees),
                 untrusted::Input::from(constraint),
             );
             assert_eq!(
@@ -1159,7 +1140,7 @@ mod tests {
     #[test]
     fn wildcard_san_could_match_excluded_subtree() {
         for (presented, constraint, expected_result) in WILDCARD_EXCLUDED_INTERSECTION {
-            let actual_result = presented_id_matches_reference_id_internal(
+            let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
                 IdRole::NameConstraint(Subtrees::ExcludedSubtrees),
                 untrusted::Input::from(constraint),
