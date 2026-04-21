@@ -16,6 +16,7 @@
 use alloc::string::String;
 use core::fmt::Write;
 
+use crate::subject_name::verify::Subtrees;
 use crate::Error;
 
 /// A DNS Name suitable for use in the TLS Server Name Indication (SNI)
@@ -233,28 +234,6 @@ impl AsRef<str> for WildcardDnsNameRef<'_> {
     }
 }
 
-pub(super) fn presented_id_matches_reference_id(
-    presented_dns_id: untrusted::Input,
-    reference_dns_id: untrusted::Input,
-) -> Result<bool, Error> {
-    presented_id_matches_reference_id_internal(
-        presented_dns_id,
-        IdRole::Reference,
-        reference_dns_id,
-    )
-}
-
-pub(super) fn presented_id_matches_constraint(
-    presented_dns_id: untrusted::Input,
-    reference_dns_id: untrusted::Input,
-) -> Result<bool, Error> {
-    presented_id_matches_reference_id_internal(
-        presented_dns_id,
-        IdRole::NameConstraint,
-        reference_dns_id,
-    )
-}
-
 // We assume that both presented_dns_id and reference_dns_id are encoded in
 // such a way that US-ASCII (7-bit) characters are encoded in one byte and no
 // encoding of a non-US-ASCII character contains a code point in the range
@@ -371,7 +350,7 @@ pub(super) fn presented_id_matches_constraint(
 // [4] Feedback on the lack of clarify in the definition that never got
 //     incorporated into the spec:
 //     https://www.ietf.org/mail-archive/web/pkix/current/msg21192.html
-fn presented_id_matches_reference_id_internal(
+pub(super) fn presented_id_matches_reference_id(
     presented_dns_id: untrusted::Input,
     reference_dns_id_role: IdRole,
     reference_dns_id: untrusted::Input,
@@ -382,7 +361,7 @@ fn presented_id_matches_reference_id_internal(
 
     if !is_valid_dns_id(reference_dns_id, reference_dns_id_role, AllowWildcards::No) {
         return Err(match reference_dns_id_role {
-            IdRole::NameConstraint => Error::MalformedNameConstraint,
+            IdRole::NameConstraint(_) => Error::MalformedNameConstraint,
             _ => Error::MalformedDnsIdentifier,
         });
     }
@@ -393,7 +372,7 @@ fn presented_id_matches_reference_id_internal(
     match reference_dns_id_role {
         IdRole::Reference => (),
 
-        IdRole::NameConstraint if presented_dns_id.len() > reference_dns_id.len() => {
+        IdRole::NameConstraint(_) if presented_dns_id.len() > reference_dns_id.len() => {
             if reference_dns_id.is_empty() {
                 // An empty constraint matches everything.
                 return Ok(true);
@@ -442,13 +421,15 @@ fn presented_id_matches_reference_id_internal(
             }
         }
 
-        IdRole::NameConstraint => (),
+        IdRole::NameConstraint(_) => (),
 
         IdRole::Presented => unreachable!(),
     }
 
     // Only allow wildcard labels that consist only of '*'.
-    if presented.peek(b'*') {
+    if presented.peek(b'*')
+        && reference_dns_id_role != IdRole::NameConstraint(Subtrees::PermittedSubtrees)
+    {
         if presented.skip(1).is_err() {
             unreachable!();
         }
@@ -483,7 +464,7 @@ fn presented_id_matches_reference_id_internal(
     // Allow a relative presented DNS ID to match an absolute reference DNS ID,
     // unless we're matching a name constraint.
     if !reference.at_end() {
-        if reference_dns_id_role != IdRole::NameConstraint {
+        if !matches!(reference_dns_id_role, IdRole::NameConstraint(_)) {
             match reference.read_byte() {
                 Ok(b'.') => (),
                 _ => {
@@ -517,10 +498,10 @@ enum AllowWildcards {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum IdRole {
+pub(super) enum IdRole {
     Reference,
     Presented,
-    NameConstraint,
+    NameConstraint(Subtrees),
 }
 
 // https://tools.ietf.org/html/rfc5280#section-4.2.1.6:
@@ -545,7 +526,7 @@ fn is_valid_dns_id(
 
     let mut input = untrusted::Reader::new(hostname);
 
-    if id_role == IdRole::NameConstraint && input.at_end() {
+    if matches!(id_role, IdRole::NameConstraint(_)) && input.at_end() {
         return true;
     }
 
@@ -604,7 +585,9 @@ fn is_valid_dns_id(
 
             Ok(b'.') => {
                 dot_count += 1;
-                if label_length == 0 && (id_role != IdRole::NameConstraint || !is_first_byte) {
+                if label_length == 0
+                    && (!matches!(id_role, IdRole::NameConstraint(_)) || !is_first_byte)
+                {
                     return false;
                 }
                 if label_ends_with_hyphen {
@@ -1028,6 +1011,7 @@ mod tests {
         for &(presented, reference, expected_result) in PRESENTED_MATCHES_REFERENCE {
             let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
+                IdRole::Reference,
                 untrusted::Input::from(reference),
             );
             assert_eq!(
@@ -1088,8 +1072,10 @@ mod tests {
         // Presented IDs with wildcard
         (b"*.example.com", b".example.com", Ok(true)),
         (b"*.example.com", b"example.com", Ok(true)),
-        (b"*.example.com", b"www.example.com", Ok(true)),
-        (b"*.example.com", b"www.EXAMPLE.COM", Ok(true)),
+        // `*.example.com` expands to names like `evil.example.com` that are
+        // outside the subtree `www.example.com`, so it is not contained.
+        (b"*.example.com", b"www.example.com", Ok(false)),
+        (b"*.example.com", b"www.EXAMPLE.COM", Ok(false)),
         (b"*.example.com", b"www.axample.com", Ok(false)),
         (b"*.example.com", b".xample.com", Ok(false)),
         (b"*.example.com", b"xample.com", Ok(false)),
@@ -1102,8 +1088,9 @@ mod tests {
     #[test]
     fn presented_matches_constraint_test() {
         for &(presented, constraint, expected_result) in PRESENTED_MATCHES_CONSTRAINT {
-            let actual_result = presented_id_matches_constraint(
+            let actual_result = presented_id_matches_reference_id(
                 untrusted::Input::from(presented),
+                IdRole::NameConstraint(Subtrees::PermittedSubtrees),
                 untrusted::Input::from(constraint),
             );
             assert_eq!(
@@ -1113,4 +1100,70 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn wildcard_san_not_contained_in_constraint() {
+        for (presented, constraint, expected_result) in WILDCARD_CONSTRAINT_CONTAINMENT {
+            let actual_result = presented_id_matches_reference_id(
+                untrusted::Input::from(presented),
+                IdRole::NameConstraint(Subtrees::PermittedSubtrees),
+                untrusted::Input::from(constraint),
+            );
+            assert_eq!(
+                &actual_result, expected_result,
+                "presented_id_matches_constraint(\"{presented:?}\", \"{constraint:?}\")",
+            );
+        }
+    }
+
+    // Per RFC 5280 4.2.1.10, a permitted dNSName subtree `www.example.com`
+    // covers only names formed by prepending labels to `www.example.com`.
+    // A wildcard SAN `*.example.com` can expand to e.g. `evil.example.com`,
+    // which is outside that subtree, so it must not be considered contained.
+    // In contrast, `*.www.example.com` only expands to names inside the
+    // subtree and is correctly accepted.
+    const WILDCARD_CONSTRAINT_CONTAINMENT: &[(&[u8], &[u8], Result<bool, Error>)] = &[
+        // Bug: `*.example.com` is broader than the permitted subtree
+        // `www.example.com` and must not satisfy the constraint.
+        (b"*.example.com", b"www.example.com", Ok(false)),
+        // Control: `*.www.example.com` stays within the subtree.
+        (b"*.www.example.com", b"www.example.com", Ok(true)),
+        // Further out-of-subtree wildcard SANs that must be rejected.
+        (b"*.example.com", b"a.b.example.com", Ok(false)),
+        (b"*.b.example.com", b"a.b.example.com", Ok(false)),
+    ];
+
+    // For excluded subtrees, a wildcard SAN must be treated as matching if
+    // any of its expansions could fall inside the excluded subtree
+    // (CVE-2025-61727). This is the opposite polarity from the containment
+    // test used for permitted subtrees.
+    #[test]
+    fn wildcard_san_could_match_excluded_subtree() {
+        for (presented, constraint, expected_result) in WILDCARD_EXCLUDED_INTERSECTION {
+            let actual_result = presented_id_matches_reference_id(
+                untrusted::Input::from(presented),
+                IdRole::NameConstraint(Subtrees::ExcludedSubtrees),
+                untrusted::Input::from(constraint),
+            );
+            assert_eq!(
+                &actual_result, expected_result,
+                "presented_id_matches_constraint(\"{presented:?}\", \"{constraint:?}\")",
+            );
+        }
+    }
+
+    const WILDCARD_EXCLUDED_INTERSECTION: &[(&[u8], &[u8], Result<bool, Error>)] = &[
+        // All expansions of `*.example.com` fall under the excluded subtree.
+        (b"*.example.com", b"example.com", Ok(true)),
+        (b"*.example.com", b".example.com", Ok(true)),
+        // `*.example.com` can expand to `www.example.com`, which is inside
+        // the excluded subtree rooted at `www.example.com`.
+        (b"*.example.com", b"www.example.com", Ok(true)),
+        (b"*.example.com", b"www.EXAMPLE.COM", Ok(true)),
+        // The wildcard cannot reach two labels deep, so it does not
+        // intersect a more specific excluded subtree.
+        (b"*.example.com", b"a.b.example.com", Ok(false)),
+        // Disjoint parent labels never intersect.
+        (b"*.example.com", b"www.other.com", Ok(false)),
+    ];
 }

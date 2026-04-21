@@ -13,7 +13,7 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use super::{
-    dns_name::{self, DnsNameRef},
+    dns_name::{self, DnsNameRef, IdRole},
     ip_address::{self, IpAddrRef},
     name::SubjectNameRef,
 };
@@ -41,7 +41,11 @@ pub(crate) fn verify_cert_dns_name(
         Err(Error::CertNotValidForName),
         &mut |name| {
             if let GeneralName::DnsName(presented_id) = name {
-                match dns_name::presented_id_matches_reference_id(presented_id, dns_name) {
+                match dns_name::presented_id_matches_reference_id(
+                    presented_id,
+                    IdRole::Reference,
+                    dns_name,
+                ) {
                     Ok(true) => return NameIteration::Stop(Ok(())),
                     Ok(false) | Err(Error::MalformedDnsIdentifier) => (),
                     Err(e) => return NameIteration::Stop(Err(e)),
@@ -163,8 +167,8 @@ fn check_presented_id_conforms_to_constraints(
     )
 }
 
-#[derive(Clone, Copy)]
-enum Subtrees {
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum Subtrees {
     PermittedSubtrees,
     ExcludedSubtrees,
 }
@@ -211,18 +215,26 @@ fn check_presented_id_conforms_to_constraints_in_subtree(
             }
         };
 
+        // Avoid having a catch-all branch here which might fail open on new variants
         let matches = match (name, base) {
             (GeneralName::DnsName(name), GeneralName::DnsName(base)) => {
-                dns_name::presented_id_matches_constraint(name, base)
+                dns_name::presented_id_matches_reference_id(
+                    name,
+                    IdRole::NameConstraint(subtrees),
+                    base,
+                )
             }
+            (GeneralName::DnsName(_), _) => continue,
 
             (GeneralName::DirectoryName(name), GeneralName::DirectoryName(base)) => Ok(
                 presented_directory_name_matches_constraint(name, base, subtrees),
             ),
+            (GeneralName::DirectoryName(_), _) => continue,
 
             (GeneralName::IpAddress(name), GeneralName::IpAddress(base)) => {
                 ip_address::presented_id_matches_constraint(name, base)
             }
+            (GeneralName::IpAddress(_), _) => continue,
 
             // RFC 4280 says "If a name constraints extension that is marked as
             // critical imposes constraints on a particular name form, and an
@@ -237,12 +249,7 @@ fn check_presented_id_conforms_to_constraints_in_subtree(
             {
                 Err(Error::NameConstraintViolation)
             }
-
-            _ => {
-                // mismatch between constraint and name types; continue with current
-                // name and next constraint
-                continue;
-            }
+            (GeneralName::Unsupported(_), _) => continue,
         };
 
         match (subtrees, matches) {
