@@ -313,20 +313,19 @@ pub(crate) fn bit_string_flags<'a>(
         let padding_bits = bit_string.read_byte().map_err(|_| Error::BadDer)?;
         let raw_bits = bit_string.read_bytes_to_end().as_slice_less_safe();
 
-        // It's illegal to have more than 7 bits of padding. Similarly, if the raw bitflags
-        // are empty there should be no padding.
-        if padding_bits > 7 || (raw_bits.is_empty() && padding_bits != 0) {
-            return Err(Error::BadDer);
-        }
+        match (padding_bits, raw_bits.last()) {
+            // It's illegal to have more than 7 bits of padding.
+            (8.., _) => Err(Error::BadDer),
 
-        // If there are padding bits then the last bit of the last raw byte must be 0 or the
-        // distinguished encoding rules are not being followed.
-        let last_byte = raw_bits[raw_bits.len() - 1];
-        let padding_mask = (1 << padding_bits) - 1;
+            // If the raw bitflags are empty there should be no padding.
+            (0, None) => Ok(BitStringFlags { raw_bits }),
+            (_, None) => Err(Error::BadDer),
 
-        match padding_bits > 0 && (last_byte & padding_mask) != 0 {
-            true => Err(Error::BadDer),
-            false => Ok(BitStringFlags { raw_bits }),
+            // If there are padding bits then the last bit of the last raw byte must be 0 or the
+            // distinguished encoding rules are not being followed.
+            (1..=7, Some(last)) if last & ((1 << padding_bits) - 1) != 0 => Err(Error::BadDer),
+
+            (_, Some(_)) => Ok(BitStringFlags { raw_bits }),
         }
     })
 }
@@ -666,7 +665,21 @@ mod tests {
         assert!(matches!(
             bit_string_flags(&mut trailing_zeroes),
             Err(Error::BadDer)
-        ))
+        ));
+
+        // invalid padding for empty set
+        for pad in 1..=255 {
+            assert_eq!(
+                bit_string_flags(&mut untrusted::Reader::new(untrusted::Input::from(&[
+                    BITSTRING_TAG, // BitString
+                    0x01,          // 1 byte of content
+                    pad,           // `pad` bits of padding
+                                   // no data (illegal with padding!)
+                ])))
+                .err(),
+                Some(Error::BadDer)
+            );
+        }
     }
 
     #[test]
@@ -693,5 +706,35 @@ mod tests {
         assert!(!res.bit_set(8));
         // Bits outside the range of values shouldn't be considered set.
         assert!(!res.bit_set(256));
+    }
+
+    #[test]
+    fn empty_bit_string_flags() {
+        let bs = super::bit_string_flags(&mut untrusted::Reader::new(untrusted::Input::from(&[
+            BITSTRING_TAG, // BitString
+            0x01,          // 2 bytes of content
+            0x00,          // zero bits of padding
+                           // no flags
+        ])))
+        .unwrap();
+
+        // all bits are unset
+        for b in 0..256 {
+            assert!(!bs.bit_set(b));
+        }
+    }
+
+    #[test]
+    fn mispadded_bit_string_flags() {
+        assert_eq!(
+            super::bit_string_flags(&mut untrusted::Reader::new(untrusted::Input::from(&[
+                BITSTRING_TAG, // BitString
+                0x02,          // 2 bytes of content
+                0x04,          // 4 bits of padding
+                0xff           // Flag data
+            ])))
+            .err(),
+            Some(super::Error::BadDer)
+        );
     }
 }
